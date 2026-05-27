@@ -1,6 +1,8 @@
 # Real-time Biometric Presence Monitoring System
 
-A production-grade, low-latency face recognition and presence monitoring system. This project utilizes a dual-runtime architecture, combining the AI and computer vision performance of Python (InsightFace, ONNXRuntime) with the real-time websocket and API capabilities of Node.js.
+> **Note:** This project is an **advanced realtime AI prototype** and a **serious experimental engineering prototype**, designed to explore modular realtime inference architectures. It is *not* intended as production-grade software or an enterprise commercial biometric platform.
+
+An experimental, low-latency face recognition and presence monitoring system. This prototype utilizes a dual-runtime architecture, combining the AI and computer vision performance of Python (InsightFace, ONNXRuntime) with the real-time websocket and API capabilities of Node.js.
 
 ## System Architecture
 
@@ -12,10 +14,11 @@ Node.js (Express + WebSocket)  ←→  Python Worker (OpenCV + InsightFace)
         SQLite Logging                   known_faces/ Embeddings
 ```
 
-### Key Features
-- **Biometric-Grade Stability**: Includes an advanced temporal voter (3-of-5 frame majority), exponential moving average (EMA) score smoothing, and Intersection over Union (IoU) face tracking.
-- **Low-Latency Streaming**: Per-client token-bucket frame throttling to manage WebSocket backpressure and prevent UI stuttering.
-- **Dual-Threshold Rejection**: Sophisticated unknown identity rejection using a dual-threshold accept/confirm system with confidence margin checking.
+### Key Experimental Features
+- **Modular Inference Architecture**: Demonstrates how to decouple heavy AI processing (Python) from real-time client state management (Node.js).
+- **Temporal Stability Prototyping**: Implements an experimental temporal voter (3-of-5 frame majority), exponential moving average (EMA) score smoothing, and Intersection over Union (IoU) face tracking.
+- **Low-Latency Streaming**: Per-client token-bucket frame throttling to experiment with managing WebSocket backpressure and preventing UI stuttering.
+- **Dual-Threshold Rejection**: Sophisticated unknown identity rejection using an experimental dual-threshold accept/confirm system with confidence margin checking.
 - **React Dashboard**: Real-time frontend built with React, showcasing confidence graphs, presence states (IDLE, TENTATIVE, CONFIRMED, LOST), and live camera feeds.
 
 ---
@@ -97,5 +100,5 @@ npm start
 ```
 
 ## AI Pipeline Details
-The core recognition system relies on `InsightFace (buffalo_l)` running at 640x640 detection resolution. 
-Inference is hardware-accelerated where available via ONNXRuntime providers (CUDA/CPU). The system implements strict biometric anti-flicker logic, ensuring stable identity locks and preventing single-frame false positives.
+The core experimental recognition system relies on `InsightFace (buffalo_l)` running at 640x640 detection resolution. 
+Inference is hardware-accelerated where available via ONNXRuntime providers (CUDA/CPU). The system acts as a testbed for biometric anti-flicker logic, ensuring stable identity locks and preventing single-frame false positives.
