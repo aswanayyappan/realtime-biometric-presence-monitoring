@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+.npm/
+
+# Environment Variables
+.env
+.env.local
+
+# Build Outputs
+dist/
+build/
+*.pyc
+__pycache__/
+
+# AI Models and Heavy Cache
+models/
+*.onnx
+
+# Data & Temp files
+*.db
+*.sqlite
+*.log
+*.tmp
+*.cache
+
+# Personal Face Data
+# Keep the folder, ignore the contents
+known_faces/*
+!known_faces/.gitkeep
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Agent skills
+skills/
+.skill/

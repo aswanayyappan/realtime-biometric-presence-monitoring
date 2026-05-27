@@ -1,0 +1,1835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL — Presence Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root {
+  --bg:          #07080b;
+  --surf-0:      #0c0d11;
+  --surf-1:      #11121a;
+  --surf-2:      #17181f;
+  --surf-3:      #1f2028;
+  --surf-4:      #272833;
+
+  --bdr:         rgba(255,255,255,0.055);
+  --bdr-hi:      rgba(255,255,255,0.10);
+  --bdr-focus:   rgba(232,160,0,0.35);
+
+  --amber:       #e8a000;
+  --amber-dim:   rgba(232,160,0,0.12);
+  --amber-glow:  rgba(232,160,0,0.25);
+  --cyan:        #00d9f5;
+  --cyan-dim:    rgba(0,217,245,0.10);
+  --green:       #00c87a;
+  --green-dim:   rgba(0,200,122,0.12);
+  --red:         #ff3d55;
+  --red-dim:     rgba(255,61,85,0.12);
+
+  --txt:         #e0e1ea;
+  --txt-2:       #9192a0;
+  --txt-3:       #5c5d6e;
+  --txt-amber:   var(--amber);
+
+  --r-xs: 4px; --r-sm: 7px; --r: 11px; --r-lg: 14px;
+
+  --mono: 'IBM Plex Mono', 'Courier New', monospace;
+  --sans: 'IBM Plex Sans', system-ui, sans-serif;
+
+  --sb-w: 216px;
+  --nav-h: 56px;
+  --ease: cubic-bezier(.4,0,.2,1);
+}
+
+/* ============================================================
+   RESET
+   ============================================================ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
+  font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+svg{display:block;}
+
+/* ============================================================
+   SCROLLBARS
+   ============================================================ */
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--surf-4);border-radius:2px;}
+
+/* ============================================================
+   APP SHELL
+   ============================================================ */
+#app{display:flex;height:100vh;width:100vw;position:relative;}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+#sidebar{
+  width:var(--sb-w);height:100vh;
+  background:var(--surf-0);
+  border-right:1px solid var(--bdr);
+  display:flex;flex-direction:column;
+  flex-shrink:0;overflow:hidden;
+  transition:width .25s var(--ease);
+  z-index:200;
+  position:relative;
+}
+#sidebar.collapsed{width:52px;}
+
+.sb-logo{
+  height:var(--nav-h);display:flex;align-items:center;
+  padding:0 14px;gap:10px;flex-shrink:0;
+  border-bottom:1px solid var(--bdr);
+}
+.sb-logo-icon{
+  width:26px;height:26px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--amber-dim);border:1px solid rgba(232,160,0,.25);
+  border-radius:6px;
+}
+.sb-logo-icon svg{width:14px;height:14px;color:var(--amber);}
+.sb-logo-name{
+  font-family:var(--mono);font-size:13px;font-weight:600;
+  letter-spacing:.08em;color:var(--txt);
+  white-space:nowrap;transition:opacity .2s;
+}
+#sidebar.collapsed .sb-logo-name{opacity:0;pointer-events:none;}
+
+.sb-nav{flex:1;padding:10px 0;overflow-y:auto;overflow-x:hidden;}
+
+.sb-section-label{
+  font-family:var(--mono);font-size:8.5px;font-weight:500;
+  color:var(--txt-3);letter-spacing:.14em;text-transform:uppercase;
+  padding:10px 14px 4px;white-space:nowrap;
+  transition:opacity .2s;
+}
+#sidebar.collapsed .sb-section-label{opacity:0;}
+
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;cursor:pointer;
+  transition:background .15s,color .15s;
+  position:relative;white-space:nowrap;overflow:hidden;
+  border-radius:0;user-select:none;
+}
+.nav-item:hover{background:var(--surf-2);}
+.nav-item.active{background:var(--surf-3);color:var(--amber);}
+.nav-item.active::before{
+  content:'';position:absolute;left:0;top:5px;bottom:5px;
+  width:2px;background:var(--amber);border-radius:0 2px 2px 0;
+}
+.nav-icon{width:17px;height:17px;flex-shrink:0;opacity:.55;
+  transition:opacity .15s;color:currentColor;}
+.nav-item.active .nav-icon,.nav-item:hover .nav-icon{opacity:.9;}
+.nav-label{font-size:12.5px;font-weight:400;
+  transition:opacity .2s;flex:1;color:var(--txt-2);}
+.nav-item.active .nav-label{color:var(--amber);}
+#sidebar.collapsed .nav-label{opacity:0;}
+
+.nav-badge{
+  font-family:var(--mono);font-size:9px;font-weight:600;
+  background:var(--amber-dim);color:var(--amber);
+  border:1px solid var(--amber-glow);
+  border-radius:100px;padding:1px 6px;
+  transition:opacity .2s;flex-shrink:0;
+}
+#sidebar.collapsed .nav-badge{opacity:0;}
+
+.sb-footer{padding:10px;border-top:1px solid var(--bdr);flex-shrink:0;}
+.collapse-btn{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:7px;background:var(--surf-2);border:1px solid var(--bdr);
+  border-radius:var(--r-sm);color:var(--txt-3);
+  transition:background .15s,color .15s;font-size:11px;
+}
+.collapse-btn:hover{background:var(--surf-3);color:var(--txt);}
+.collapse-btn svg{width:13px;height:13px;flex-shrink:0;
+  transition:transform .25s var(--ease);}
+#sidebar.collapsed .collapse-btn svg{transform:rotate(180deg);}
+.collapse-btn-text{white-space:nowrap;transition:opacity .2s,width .2s;}
+#sidebar.collapsed .collapse-btn-text{opacity:0;width:0;overflow:hidden;}
+
+/* ============================================================
+   MAIN AREA
+   ============================================================ */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+
+/* ============================================================
+   NAVBAR
+   ============================================================ */
+#navbar{
+  height:var(--nav-h);background:var(--surf-0);
+  border-bottom:1px solid var(--bdr);
+  display:flex;align-items:center;padding:0 18px;gap:14px;
+  flex-shrink:0;z-index:100;
+}
+.nav-breadcrumb{
+  font-family:var(--mono);font-size:12px;color:var(--txt-3);
+  letter-spacing:.06em;display:flex;align-items:center;gap:6px;
+}
+.nav-breadcrumb span{color:var(--txt-2);}
+.nav-breadcrumb em{color:var(--txt);}
+.nb-sep{color:var(--txt-3);}
+.nb-spacer{flex:1;}
+
+/* monitoring badge */
+.monitor-badge{
+  display:flex;align-items:center;gap:6px;padding:5px 12px;
+  background:var(--amber-dim);border:1px solid rgba(232,160,0,.22);
+  border-radius:100px;font-family:var(--mono);font-size:10.5px;
+  font-weight:500;color:var(--amber);letter-spacing:.07em;
+  cursor:default;
+}
+.monitor-badge-dot{
+  width:5px;height:5px;border-radius:50%;background:var(--amber);
+  animation:pulse-amber 1.4s ease-in-out infinite;
+}
+@keyframes pulse-amber{
+  0%,100%{opacity:1;box-shadow:0 0 5px var(--amber);}
+  50%{opacity:.35;box-shadow:none;}
+}
+
+/* ws status */
+.ws-pill{
+  display:flex;align-items:center;gap:5px;padding:4px 10px;
+  background:var(--surf-2);border:1px solid var(--bdr);
+  border-radius:100px;font-family:var(--mono);font-size:10.5px;
+  color:var(--txt-3);letter-spacing:.05em;transition:all .3s;
+}
+.ws-pill.connected{
+  border-color:rgba(0,200,122,.25);color:var(--green);
+}
+.ws-dot{width:6px;height:6px;border-radius:50%;background:var(--txt-3);
+  flex-shrink:0;transition:all .3s;}
+.ws-pill.connected .ws-dot{
+  background:var(--green);
+  animation:pulse-green 2s infinite;
+}
+@keyframes pulse-green{
+  0%,100%{opacity:1;}50%{opacity:.4;}
+}
+
+/* clock */
+#live-clock{
+  font-family:var(--mono);font-size:12.5px;color:var(--txt-2);
+  letter-spacing:.09em;min-width:78px;text-align:right;
+}
+
+/* ============================================================
+   CONTENT CANVAS
+   ============================================================ */
+#content{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:16px;
+  display:grid;
+  grid-template-columns:1fr 300px;
+  grid-template-rows:auto auto auto auto;
+  gap:14px;
+  align-content:start;
+}
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+.card{
+  background:var(--surf-1);border:1px solid var(--bdr);
+  border-radius:var(--r-lg);overflow:hidden;
+  transition:border-color .2s;
+}
+.card:hover{border-color:var(--bdr-hi);}
+.card-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--bdr);
+}
+.card-title{
+  font-family:var(--mono);font-size:9.5px;font-weight:500;
+  color:var(--txt-3);letter-spacing:.13em;text-transform:uppercase;
+  display:flex;align-items:center;gap:7px;
+}
+.card-title-dot{
+  width:5px;height:5px;border-radius:50%;background:var(--txt-3);
+  flex-shrink:0;
+}
+.card-title-dot.live{background:var(--red);animation:blink-red .9s step-end infinite;}
+@keyframes blink-red{0%,100%{opacity:1;}50%{opacity:0;}}
+.card-meta{
+  font-family:var(--mono);font-size:10px;color:var(--txt-3);
+}
+.card-body{padding:16px;}
+
+/* ============================================================
+   CAMERA PANEL
+   ============================================================ */
+.camera-panel{grid-column:1;grid-row:1/3;}
+
+.cam-container{
+  position:relative;background:#000;
+  aspect-ratio:16/9;overflow:hidden;
+}
+#webcam-video{
+  width:100%;height:100%;object-fit:cover;
+  display:block;transform:scaleX(-1);
+  transition:opacity .4s;
+}
+#detection-canvas{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  pointer-events:none;
+}
+
+/* CRT scanline overlay */
+.cam-crt{
+  position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,
+    rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px);
+  z-index:2;
+}
+
+/* Scan line sweep */
+.cam-scan{
+  position:absolute;left:0;right:0;height:2px;pointer-events:none;z-index:3;
+  background:linear-gradient(90deg,transparent 0%,
+    rgba(0,217,245,.35) 30%,rgba(0,217,245,.6) 50%,
+    rgba(0,217,245,.35) 70%,transparent 100%);
+  animation:scan-sweep 6s linear infinite;opacity:0;
+}
+@keyframes scan-sweep{
+  0%{top:-2px;opacity:0;}
+  2%{opacity:1;}
+  98%{opacity:.6;}
+  100%{top:100%;opacity:0;}
+}
+
+/* Corner brackets */
+.cam-overlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:4;}
+.cam-corner{position:absolute;width:18px;height:18px;}
+.cam-corner.tl{top:10px;left:10px;border-top:1.5px solid var(--cyan);border-left:1.5px solid var(--cyan);}
+.cam-corner.tr{top:10px;right:10px;border-top:1.5px solid var(--cyan);border-right:1.5px solid var(--cyan);}
+.cam-corner.bl{bottom:10px;left:10px;border-bottom:1.5px solid var(--cyan);border-left:1.5px solid var(--cyan);}
+.cam-corner.br{bottom:10px;right:10px;border-bottom:1.5px solid var(--cyan);border-right:1.5px solid var(--cyan);}
+
+/* REC indicator */
+.cam-rec{
+  position:absolute;top:10px;right:10px;z-index:5;
+  display:flex;align-items:center;gap:5px;padding:4px 8px;
+  background:rgba(0,0,0,.65);backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:4px;font-family:var(--mono);font-size:9.5px;
+  font-weight:500;color:rgba(255,255,255,.75);letter-spacing:.1em;
+}
+.rec-dot{width:5px;height:5px;border-radius:50%;background:var(--red);
+  animation:blink-red .9s step-end infinite;}
+
+/* FPS overlay */
+.cam-fps{
+  position:absolute;bottom:10px;left:10px;z-index:5;
+  font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.3);
+  letter-spacing:.08em;
+}
+
+/* Identity label */
+.cam-id{
+  position:absolute;bottom:10px;right:10px;z-index:5;
+  font-family:var(--mono);font-size:9px;color:rgba(0,217,245,.5);
+  letter-spacing:.1em;
+}
+
+/* Camera inactive placeholder */
+.cam-placeholder{
+  position:absolute;top:0;left:0;right:0;bottom:0;z-index:10;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;background:var(--surf-0);
+}
+.cam-placeholder-icon{color:var(--txt-3);opacity:.4;}
+.cam-placeholder-label{
+  font-family:var(--mono);font-size:11px;color:var(--txt-3);
+  letter-spacing:.1em;text-align:center;
+}
+.cam-start-btn{
+  display:flex;align-items:center;gap:8px;padding:10px 22px;
+  background:var(--amber);color:#000;
+  border-radius:var(--r-sm);font-family:var(--mono);
+  font-size:11.5px;font-weight:600;letter-spacing:.09em;
+  transition:all .15s ease;border:none;
+}
+.cam-start-btn:hover{
+  background:#ffb300;transform:translateY(-1px);
+  box-shadow:0 6px 20px var(--amber-glow);
+}
+.cam-start-btn svg{width:14px;height:14px;}
+
+/* Camera footer strip */
+.cam-footer{
+  display:flex;align-items:center;gap:14px;
+  padding:9px 14px;border-top:1px solid var(--bdr);
+  background:var(--surf-0);flex-wrap:wrap;
+}
+.cam-stat{
+  display:flex;align-items:center;gap:5px;
+  font-family:var(--mono);font-size:10px;color:var(--txt-3);
+}
+.cam-stat-v{color:var(--txt-2);font-weight:500;}
+.cam-stat-sep{color:var(--txt-3);opacity:.3;margin:0 2px;}
+
+/* Active glow on camera panel */
+.camera-panel.active{border-color:rgba(0,217,245,.2);
+  box-shadow:0 0 0 1px rgba(0,217,245,.1),0 0 30px rgba(0,217,245,.06);}
+
+/* ============================================================
+   PRESENCE PANEL
+   ============================================================ */
+.presence-panel{grid-column:2;grid-row:1;}
+.presence-body{
+  display:flex;flex-direction:column;align-items:center;
+  padding:18px 16px 16px;gap:14px;
+}
+
+/* Orb */
+.presence-orb-wrap{position:relative;width:80px;height:80px;}
+.presence-orb{
+  width:80px;height:80px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .5s ease;position:relative;z-index:1;
+  background:radial-gradient(circle at 40% 40%,rgba(92,93,110,.2),rgba(92,93,110,.05));
+  box-shadow:0 0 0 1px rgba(92,93,110,.2),0 0 20px rgba(92,93,110,.1);
+}
+.presence-orb.present{
+  background:radial-gradient(circle at 40% 40%,rgba(0,200,122,.25),rgba(0,200,122,.04));
+  box-shadow:0 0 0 1px rgba(0,200,122,.3),0 0 20px rgba(0,200,122,.2),0 0 50px rgba(0,200,122,.08);
+}
+.presence-orb.away{
+  background:radial-gradient(circle at 40% 40%,rgba(255,61,85,.25),rgba(255,61,85,.04));
+  box-shadow:0 0 0 1px rgba(255,61,85,.3),0 0 20px rgba(255,61,85,.2),0 0 50px rgba(255,61,85,.08);
+}
+.presence-orb svg{width:30px;height:30px;color:var(--txt-3);transition:color .5s;}
+.presence-orb.present svg{color:var(--green);}
+.presence-orb.away svg{color:var(--red);}
+
+/* Orb ring pulse */
+.orb-ring{
+  position:absolute;top:-6px;left:-6px;right:-6px;bottom:-6px;
+  border-radius:50%;border:1px solid transparent;
+  transition:border-color .5s;
+}
+.presence-orb.present~.orb-ring{
+  border-color:rgba(0,200,122,.2);
+  animation:ring-breathe 2.5s ease-in-out infinite;
+}
+@keyframes ring-breathe{
+  0%,100%{transform:scale(1);opacity:.7;}
+  50%{transform:scale(1.12);opacity:.2;}
+}
+
+.presence-state{
+  font-family:var(--mono);font-size:16px;font-weight:600;
+  letter-spacing:.18em;color:var(--txt-3);
+  transition:color .4s;
+}
+.presence-state.present{color:var(--green);}
+.presence-state.away{color:var(--red);}
+.presence-state.unknown{color:var(--txt-3);}
+
+.presence-sub{
+  font-family:var(--mono);font-size:9.5px;color:var(--txt-3);
+  letter-spacing:.06em;text-align:center;margin-top:-8px;
+}
+
+.presence-kpi{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;
+}
+.kpi-cell{
+  background:var(--surf-2);border:1px solid var(--bdr);
+  border-radius:var(--r-sm);padding:9px 10px;
+}
+.kpi-label{
+  font-family:var(--mono);font-size:8.5px;color:var(--txt-3);
+  letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;
+}
+.kpi-value{
+  font-family:var(--mono);font-size:15px;font-weight:600;
+  color:var(--txt);letter-spacing:.04em;
+}
+
+/* ============================================================
+   CONFIDENCE PANEL
+   ============================================================ */
+.confidence-panel{grid-column:2;grid-row:2;}
+
+.conf-top{
+  display:flex;align-items:baseline;gap:3px;margin-bottom:6px;
+}
+.conf-num{
+  font-family:var(--mono);font-size:38px;font-weight:300;
+  color:var(--txt);line-height:1;transition:color .3s;
+}
+.conf-pct{font-family:var(--mono);font-size:15px;color:var(--txt-3);}
+.conf-lbl{
+  font-family:var(--mono);font-size:9px;color:var(--txt-3);
+  letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;
+}
+
+/* Bar */
+.conf-track{
+  height:3px;background:var(--surf-3);
+  border-radius:2px;overflow:hidden;margin-bottom:4px;
+}
+.conf-fill{
+  height:100%;border-radius:2px;background:var(--amber);
+  transition:width .4s ease,background .3s;
+}
+
+.conf-range{
+  display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:9px;color:var(--txt-3);
+  margin-bottom:10px;
+}
+
+/* Mini sparkline chart */
+.conf-sparkline{
+  height:42px;position:relative;overflow:hidden;
+}
+#conf-canvas{display:block;width:100%;height:42px;}
+
+/* ============================================================
+   SESSION STRIP
+   ============================================================ */
+.session-panel{grid-column:1/3;grid-row:3;}
+
+.session-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:14px;
+}
+.sess-stat{display:flex;flex-direction:column;gap:3px;padding:4px 0;}
+.sess-stat-label{
+  font-family:var(--mono);font-size:9px;color:var(--txt-3);
+  letter-spacing:.11em;text-transform:uppercase;
+}
+.sess-stat-value{
+  font-family:var(--mono);font-size:22px;font-weight:500;
+  color:var(--txt);letter-spacing:.04em;
+}
+.sess-stat-sub{font-family:var(--mono);font-size:10px;color:var(--txt-3);}
+
+/* Dividers between stats */
+.sess-div{
+  width:1px;background:var(--bdr);align-self:stretch;margin:4px 0;
+}
+
+/* ============================================================
+   DETECTIONS PANEL
+   ============================================================ */
+.detections-panel{grid-column:1;grid-row:4;}
+
+.det-list{
+  display:flex;flex-direction:column;gap:7px;
+  max-height:260px;overflow-y:auto;
+}
+.det-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;
+  background:var(--surf-2);border:1px solid var(--bdr);
+  border-radius:var(--r-sm);
+  animation:det-in .25s ease both;
+}
+@keyframes det-in{
+  from{transform:translateY(-6px);opacity:0;}
+  to{transform:translateY(0);opacity:1;}
+}
+.det-dot{
+  width:7px;height:7px;border-radius:50%;flex-shrink:0;
+}
+.det-dot.present{background:var(--green);box-shadow:0 0 6px var(--green);}
+.det-dot.away{background:var(--red);box-shadow:0 0 6px var(--red);}
+.det-dot.unknown{background:var(--txt-3);}
+.det-info{flex:1;min-width:0;}
+.det-event{
+  font-size:12px;font-weight:500;color:var(--txt);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.det-time{font-family:var(--mono);font-size:10px;color:var(--txt-3);}
+.det-conf{
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  flex-shrink:0;
+}
+.det-conf.hi{color:var(--green);}
+.det-conf.mid{color:var(--amber);}
+.det-conf.lo{color:var(--red);}
+
+/* ============================================================
+   SYSTEM STATUS PANEL
+   ============================================================ */
+.system-panel{grid-column:2;grid-row:4;}
+
+.sys-list{display:flex;flex-direction:column;gap:11px;}
+.sys-item{
+  display:flex;align-items:center;gap:9px;
+}
+.sys-icon{width:15px;height:15px;color:var(--txt-3);flex-shrink:0;}
+.sys-label{font-size:12px;color:var(--txt-2);flex:1;}
+.sys-value{
+  font-family:var(--mono);font-size:10.5px;font-weight:500;
+}
+.sys-value.ok{color:var(--green);}
+.sys-value.warn{color:var(--amber);}
+.sys-value.err{color:var(--red);}
+.sys-value.dim{color:var(--txt-2);}
+
+.sys-bar{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 0 0;border-top:1px solid var(--bdr);margin-top:4px;
+}
+.sys-bar-label{font-family:var(--mono);font-size:9px;color:var(--txt-3);letter-spacing:.08em;flex:1;}
+.sys-bar-track{flex:1;height:2px;background:var(--surf-4);border-radius:1px;overflow:hidden;}
+.sys-bar-fill{height:100%;border-radius:1px;background:var(--cyan);transition:width .5s ease;}
+
+/* ============================================================
+   TIMELINE PANEL
+   ============================================================ */
+.timeline-panel{grid-column:1/3;grid-row:5;}
+
+.tl-chart{padding:4px 0 0;}
+.tl-row{
+  display:flex;gap:2px;height:28px;margin-bottom:5px;
+}
+.tl-block{
+  flex:1;border-radius:2px;cursor:pointer;
+  transition:opacity .2s,transform .1s;
+  position:relative;
+}
+.tl-block:hover{opacity:.75;transform:scaleY(1.1);}
+.tl-block.absent{background:var(--surf-3);}
+.tl-block.present{background:var(--green);opacity:.65;}
+.tl-block.partial{background:var(--amber);opacity:.6;}
+.tl-block.current{
+  background:var(--cyan);opacity:.8;
+  animation:tl-pulse 1.2s ease-in-out infinite;
+}
+@keyframes tl-pulse{
+  0%,100%{opacity:.8;}50%{opacity:.35;}
+}
+.tl-block:hover .tl-tip{display:block;}
+.tl-tip{
+  display:none;position:absolute;
+  bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);
+  padding:4px 8px;background:var(--surf-4);
+  border:1px solid var(--bdr-hi);border-radius:4px;
+  font-family:var(--mono);font-size:9.5px;color:var(--txt-2);
+  white-space:nowrap;z-index:20;pointer-events:none;
+}
+.tl-labels{
+  display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:9px;color:var(--txt-3);
+  padding:0 1px;margin-bottom:10px;
+}
+.tl-legend{display:flex;align-items:center;gap:16px;}
+.tl-leg-item{
+  display:flex;align-items:center;gap:5px;
+  font-family:var(--mono);font-size:10px;color:var(--txt-3);
+}
+.tl-leg-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+
+/* ============================================================
+   ANIMATIONS MISC
+   ============================================================ */
+.fade-in{animation:fade-in .3s ease both;}
+@keyframes fade-in{from{opacity:0;}to{opacity:1;}}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media(max-width:1100px){
+  #content{grid-template-columns:1fr 280px;}
+}
+@media(max-width:880px){
+  #content{grid-template-columns:1fr;padding:12px;}
+  .camera-panel{grid-column:1;grid-row:1;}
+  .presence-panel{grid-column:1;grid-row:2;}
+  .confidence-panel{grid-column:1;grid-row:3;}
+  .session-panel{grid-column:1;grid-row:4;}
+  .detections-panel{grid-column:1;grid-row:5;}
+  .system-panel{grid-column:1;grid-row:6;}
+  .timeline-panel{grid-column:1;grid-row:7;}
+  .session-grid{grid-template-columns:1fr 1fr;}
+  #sidebar{position:absolute;left:0;top:0;height:100%;z-index:300;}
+  #sidebar:not(.collapsed){box-shadow:0 0 40px rgba(0,0,0,.8);}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- =================== SIDEBAR =================== -->
+  <nav id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-icon">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="8" cy="8" r="5"/>
+          <circle cx="8" cy="8" r="2"/>
+          <line x1="8" y1="1" x2="8" y2="3"/>
+          <line x1="8" y1="13" x2="8" y2="15"/>
+          <line x1="1" y1="8" x2="3" y2="8"/>
+          <line x1="13" y1="8" x2="15" y2="8"/>
+        </svg>
+      </div>
+      <span class="sb-logo-name">SENTINEL</span>
+    </div>
+
+    <div class="sb-nav">
+      <div class="sb-section-label">Monitor</div>
+
+      <div class="nav-item active" data-nav="dashboard">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+          <rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/>
+          <rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/>
+        </svg>
+        <span class="nav-label">Dashboard</span>
+        <span class="nav-badge" id="live-badge">LIVE</span>
+      </div>
+
+      <div class="nav-item" data-nav="logs">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M4 5h12M4 9h8M4 13h10"/>
+        </svg>
+        <span class="nav-label">Presence Logs</span>
+      </div>
+
+      <div class="nav-item" data-nav="sessions">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/>
+        </svg>
+        <span class="nav-label">Sessions</span>
+      </div>
+
+      <div class="sb-section-label">Analyze</div>
+
+      <div class="nav-item" data-nav="timeline">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M3 10h14M3 6h6M3 14h9"/>
+        </svg>
+        <span class="nav-label">Activity Timeline</span>
+      </div>
+
+      <div class="nav-item" data-nav="identity">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="10" cy="8" r="3"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6"/>
+        </svg>
+        <span class="nav-label">Identity</span>
+      </div>
+
+      <div class="sb-section-label">System</div>
+
+      <div class="nav-item" data-nav="settings">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="10" cy="10" r="2.5"/>
+          <path d="M10 2v2.5M10 15.5V18M2 10h2.5M15.5 10H18M4.2 4.2l1.8 1.8M14 14l1.8 1.8M4.2 15.8l1.8-1.8M14 6l1.8-1.8"/>
+        </svg>
+        <span class="nav-label">Settings</span>
+      </div>
+    </div>
+
+    <div class="sb-footer">
+      <button class="collapse-btn" id="collapse-btn">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M10 3L5 8l5 5"/>
+        </svg>
+        <span class="collapse-btn-text">Collapse</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- =================== MAIN =================== -->
+  <div id="main">
+
+    <!-- NAVBAR -->
+    <header id="navbar">
+      <div class="nav-breadcrumb">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="2"/>
+        </svg>
+        <span>SENTINEL</span>
+        <span class="nb-sep">/</span>
+        <em id="nav-page-label">Dashboard</em>
+      </div>
+      <div class="nb-spacer"></div>
+      <div class="monitor-badge" id="monitor-badge">
+        <div class="monitor-badge-dot"></div>
+        <span>MONITORING</span>
+      </div>
+      <div class="ws-pill" id="ws-pill">
+        <div class="ws-dot"></div>
+        <span id="ws-label">CONNECTING</span>
+      </div>
+      <div id="live-clock">--:--:--</div>
+    </header>
+
+    <!-- CONTENT GRID -->
+    <div id="content">
+
+      <!-- ===== CAMERA PANEL ===== -->
+      <div class="card camera-panel" id="camera-panel">
+        <div class="card-hdr">
+          <div class="card-title">
+            <div class="card-title-dot live"></div>
+            Live Camera Feed
+          </div>
+          <div class="card-meta" id="cam-resolution">—</div>
+        </div>
+        <div class="cam-container" id="cam-container">
+          <video id="webcam-video" autoplay playsinline muted></video>
+          <canvas id="detection-canvas"></canvas>
+          <div class="cam-crt"></div>
+          <div class="cam-scan"></div>
+          <div class="cam-overlay">
+            <div class="cam-corner tl"></div>
+            <div class="cam-corner tr"></div>
+            <div class="cam-corner bl"></div>
+            <div class="cam-corner br"></div>
+          </div>
+          <div class="cam-rec" id="cam-rec" style="display:none">
+            <div class="rec-dot"></div>
+            <span>REC</span>
+          </div>
+          <div class="cam-fps" id="cam-fps-overlay"></div>
+          <div class="cam-id" id="cam-id-overlay"></div>
+
+          <!-- Placeholder -->
+          <div class="cam-placeholder" id="cam-placeholder">
+            <svg class="cam-placeholder-icon" width="52" height="52" viewBox="0 0 52 52" fill="none" stroke="currentColor" stroke-width="1.4">
+              <rect x="4" y="12" width="36" height="28" rx="4"/>
+              <circle cx="22" cy="26" r="7"/>
+              <circle cx="22" cy="26" r="3"/>
+              <path d="M40 20l8-6v24l-8-6"/>
+            </svg>
+            <div class="cam-placeholder-label">Camera access required<br>for presence monitoring</div>
+            <button class="cam-start-btn" id="cam-start-btn">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5,3 13,8 5,13" fill="currentColor" stroke="none"/>
+              </svg>
+              INITIALIZE MONITOR
+            </button>
+          </div>
+        </div>
+        <div class="cam-footer">
+          <div class="cam-stat">
+            <span>FPS</span>
+            <span class="cam-stat-sep">·</span>
+            <span class="cam-stat-v" id="cam-fps">—</span>
+          </div>
+          <div class="cam-stat">
+            <span>LATENCY</span>
+            <span class="cam-stat-sep">·</span>
+            <span class="cam-stat-v" id="cam-latency">—</span>
+          </div>
+          <div class="cam-stat">
+            <span>RESOLUTION</span>
+            <span class="cam-stat-sep">·</span>
+            <span class="cam-stat-v" id="cam-res">—</span>
+          </div>
+          <div class="cam-stat" style="margin-left:auto">
+            <span>AI ENGINE</span>
+            <span class="cam-stat-sep">·</span>
+            <span class="cam-stat-v" id="cam-ai-state" style="color:var(--txt-3)">OFFLINE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PRESENCE PANEL ===== -->
+      <div class="card presence-panel">
+        <div class="card-hdr">
+          <div class="card-title">
+            <div class="card-title-dot" id="pres-dot"></div>
+            Presence State
+          </div>
+          <div class="card-meta" id="pres-updated">—</div>
+        </div>
+        <div class="presence-body">
+          <div class="presence-orb-wrap">
+            <div class="presence-orb" id="presence-orb">
+              <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
+                <circle cx="16" cy="12" r="5"/>
+                <path d="M6 28c0-5.5 4.5-10 10-10s10 4.5 10 10"/>
+              </svg>
+            </div>
+            <div class="orb-ring" id="orb-ring"></div>
+          </div>
+          <div class="presence-state unknown" id="presence-state">UNKNOWN</div>
+          <div class="presence-sub" id="presence-sub">Awaiting camera input</div>
+          <div class="presence-kpi">
+            <div class="kpi-cell">
+              <div class="kpi-label">Sessions</div>
+              <div class="kpi-value" id="kpi-sessions">0</div>
+            </div>
+            <div class="kpi-cell">
+              <div class="kpi-label">Today</div>
+              <div class="kpi-value" id="kpi-today">0h 0m</div>
+            </div>
+            <div class="kpi-cell">
+              <div class="kpi-label">Accuracy</div>
+              <div class="kpi-value" id="kpi-accuracy">—</div>
+            </div>
+            <div class="kpi-cell">
+              <div class="kpi-label">Events</div>
+              <div class="kpi-value" id="kpi-events">0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CONFIDENCE PANEL ===== -->
+      <div class="card confidence-panel">
+        <div class="card-hdr">
+          <div class="card-title">AI Confidence</div>
+          <div class="card-meta" id="conf-status-lbl" style="color:var(--txt-3);font-family:var(--mono);font-size:10px;letter-spacing:.08em;">INACTIVE</div>
+        </div>
+        <div class="card-body" style="padding-bottom:12px;">
+          <div class="conf-top">
+            <div class="conf-num" id="conf-num">0</div>
+            <div class="conf-pct">%</div>
+          </div>
+          <div class="conf-lbl">Match Confidence</div>
+          <div class="conf-track">
+            <div class="conf-fill" id="conf-fill" style="width:0%"></div>
+          </div>
+          <div class="conf-range">
+            <span>0%</span><span>THRESHOLD 70%</span><span>100%</span>
+          </div>
+          <div class="conf-sparkline">
+            <canvas id="conf-canvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SESSION STRIP ===== -->
+      <div class="card session-panel">
+        <div class="card-hdr">
+          <div class="card-title">Session &amp; Uptime</div>
+          <div class="card-meta" id="sess-status" style="font-family:var(--mono);font-size:10px;letter-spacing:.07em;color:var(--txt-3);">IDLE</div>
+        </div>
+        <div class="card-body">
+          <div class="session-grid">
+            <div class="sess-stat">
+              <div class="sess-stat-label">Session Time</div>
+              <div class="sess-stat-value" id="sess-time">00:00:00</div>
+              <div class="sess-stat-sub" id="sess-start">Not started</div>
+            </div>
+            <div class="sess-stat">
+              <div class="sess-stat-label">Monitoring Uptime</div>
+              <div class="sess-stat-value" id="sess-uptime">00:00:00</div>
+              <div class="sess-stat-sub">Since launch</div>
+            </div>
+            <div class="sess-stat">
+              <div class="sess-stat-label">Last Detected</div>
+              <div class="sess-stat-value" id="sess-last">—</div>
+              <div class="sess-stat-sub" id="sess-last-ago">No data</div>
+            </div>
+            <div class="sess-stat">
+              <div class="sess-stat-label">Frames Analyzed</div>
+              <div class="sess-stat-value" id="sess-frames">0</div>
+              <div class="sess-stat-sub" id="sess-fps-avg">0 fps avg</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== DETECTIONS PANEL ===== -->
+      <div class="card detections-panel">
+        <div class="card-hdr">
+          <div class="card-title">
+            <div class="card-title-dot live"></div>
+            Recent Detections
+          </div>
+          <div class="card-meta" id="det-count-lbl" style="font-family:var(--mono);font-size:10px;color:var(--txt-3);">0 events</div>
+        </div>
+        <div class="card-body" style="padding:12px;">
+          <div class="det-list" id="det-list">
+            <div style="font-family:var(--mono);font-size:11px;color:var(--txt-3);text-align:center;padding:20px 0;letter-spacing:.07em;">
+              Awaiting detections…
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SYSTEM STATUS ===== -->
+      <div class="card system-panel">
+        <div class="card-hdr">
+          <div class="card-title">System Status</div>
+        </div>
+        <div class="card-body">
+          <div class="sys-list">
+            <div class="sys-item">
+              <svg class="sys-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="1" y="4" width="11" height="8" rx="1.5"/>
+                <path d="M12 7l3-2v6l-3-2"/>
+              </svg>
+              <span class="sys-label">Webcam</span>
+              <span class="sys-value err" id="sys-cam">OFFLINE</span>
+            </div>
+            <div class="sys-item">
+              <svg class="sys-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M2 10c1.5-2 3.5-3 6-3s4.5 1 6 3"/>
+                <path d="M5 13c.8-1 1.8-1.5 3-1.5s2.2.5 3 1.5"/>
+                <circle cx="8" cy="15" r=".8" fill="currentColor"/>
+              </svg>
+              <span class="sys-label">WebSocket</span>
+              <span class="sys-value err" id="sys-ws">DISCONNECTED</span>
+            </div>
+            <div class="sys-item">
+              <svg class="sys-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="2" y="5" width="12" height="8" rx="1.5"/>
+                <path d="M5 5V4a3 3 0 016 0v1"/>
+              </svg>
+              <span class="sys-label">AI Worker</span>
+              <span class="sys-value err" id="sys-ai">STOPPED</span>
+            </div>
+            <div class="sys-item">
+              <svg class="sys-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="8" cy="8" r="6"/>
+                <path d="M8 4v4l3 2"/>
+              </svg>
+              <span class="sys-label">Latency</span>
+              <span class="sys-value dim" id="sys-latency">— ms</span>
+            </div>
+            <div class="sys-item">
+              <svg class="sys-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="1" y="3" width="14" height="10" rx="1.5"/>
+                <path d="M4 6l2.5 4L8 7l2 3 1.5-2 1 2"/>
+              </svg>
+              <span class="sys-label">Frame Rate</span>
+              <span class="sys-value dim" id="sys-fps">0 fps</span>
+            </div>
+          </div>
+          <!-- CPU proxy bar -->
+          <div class="sys-bar" style="margin-top:12px;">
+            <span class="sys-bar-label">AI LOAD</span>
+            <div class="sys-bar-track">
+              <div class="sys-bar-fill" id="sys-ai-bar" style="width:0%"></div>
+            </div>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--txt-3);margin-left:8px;" id="sys-ai-bar-lbl">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== TIMELINE PANEL ===== -->
+      <div class="card timeline-panel">
+        <div class="card-hdr">
+          <div class="card-title">Daily Activity Timeline</div>
+          <div class="card-meta" id="tl-date" style="font-family:var(--mono);font-size:10px;color:var(--txt-3);">—</div>
+        </div>
+        <div class="card-body" style="padding:12px 16px 14px;">
+          <div class="tl-chart">
+            <div class="tl-row" id="tl-row"></div>
+            <div class="tl-labels" id="tl-labels"></div>
+          </div>
+          <div class="tl-legend">
+            <div class="tl-leg-item"><div class="tl-leg-dot" style="background:var(--green);opacity:.65"></div>Present</div>
+            <div class="tl-leg-item"><div class="tl-leg-dot" style="background:var(--amber);opacity:.6"></div>Partial</div>
+            <div class="tl-leg-item"><div class="tl-leg-dot" style="background:var(--surf-3)"></div>Away</div>
+            <div class="tl-leg-item"><div class="tl-leg-dot" style="background:var(--cyan);opacity:.8"></div>Current</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+/* ============================================================
+   STATE
+   ============================================================ */
+const S = {
+  cameraActive: false,
+  presence: 'UNKNOWN',      // PRESENT | AWAY | UNKNOWN
+  confidence: 0,
+  targetConf: 0,
+  sessionStart: null,
+  monitorStart: Date.now(),
+  lastDetectTime: null,
+  lastDetectAgo: null,
+  fps: 0,
+  frameCount: 0,
+  totalFrames: 0,
+  latency: 0,
+  wsState: 'DISCONNECTED',
+  aiActive: false,
+  aiLoad: 0,
+  events: 0,
+  sessions: 0,
+  todayMinutes: 0,
+  accuracyScore: 0,
+  sidebarCollapsed: false,
+  confHistory: new Float32Array(80).fill(0),
+  // Face simulation
+  face: {
+    detected: false,
+    x: .28, y: .12, w: .38, h: .68,
+    vx: 0, vy: 0,
+    scanY: 0,
+    lostTimer: 0,
+    scanPhase: 0,
+  },
+};
+
+/* ============================================================
+   UTILS
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+function fmtDuration(ms) {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+function fmtTime(d) {
+  return d.toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+function fmtTimeShort(d) {
+  return d.toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit'});
+}
+function timeAgo(ts) {
+  if (!ts) return '—';
+  const diff = (Date.now() - ts) / 1000;
+  if (diff < 5) return 'just now';
+  if (diff < 60) return `${Math.floor(diff)}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  return `${Math.floor(diff/3600)}h ago`;
+}
+
+/* ============================================================
+   CLOCK
+   ============================================================ */
+function tickClock() {
+  const now = new Date();
+  $('live-clock').textContent = fmtTime(now);
+  updateSessionStats();
+  updateSystemPanel();
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+$('collapse-btn').addEventListener('click', () => {
+  S.sidebarCollapsed = !S.sidebarCollapsed;
+  document.getElementById('sidebar').classList.toggle('collapsed', S.sidebarCollapsed);
+});
+
+document.querySelectorAll('.nav-item[data-nav]').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    el.classList.add('active');
+    const page = el.dataset.nav;
+    const labels = {dashboard:'Dashboard',logs:'Presence Logs',sessions:'Sessions',
+      timeline:'Activity Timeline',identity:'Identity',settings:'Settings'};
+    $('nav-page-label').textContent = labels[page] || page;
+  });
+});
+
+/* ============================================================
+   WEBSOCKET SIMULATION
+   ============================================================ */
+const WS = {
+  _timer: null,
+  state: 'DISCONNECTED',
+  connect() {
+    this.setState('CONNECTING');
+    clearTimeout(this._timer);
+    this._timer = setTimeout(() => {
+      this.setState('CONNECTED');
+      this.scheduleMessages();
+    }, 1200 + Math.random() * 800);
+  },
+  disconnect() {
+    this.setState('DISCONNECTED');
+    clearTimeout(this._timer);
+    this._timer = setTimeout(() => this.connect(), 3000 + Math.random() * 2000);
+  },
+  setState(s) {
+    this.state = s;
+    S.wsState = s;
+    const pill = $('ws-pill');
+    const lbl = $('ws-label');
+    if (s === 'CONNECTED') {
+      pill.classList.add('connected');
+      lbl.textContent = 'CONNECTED';
+      $('sys-ws').textContent = 'CONNECTED';
+      $('sys-ws').className = 'sys-value ok';
+    } else if (s === 'CONNECTING') {
+      pill.classList.remove('connected');
+      lbl.textContent = 'CONNECTING';
+      $('sys-ws').textContent = 'CONNECTING';
+      $('sys-ws').className = 'sys-value warn';
+    } else {
+      pill.classList.remove('connected');
+      lbl.textContent = 'OFFLINE';
+      $('sys-ws').textContent = 'OFFLINE';
+      $('sys-ws').className = 'sys-value err';
+    }
+  },
+  scheduleMessages() {
+    // Simulate periodic WS messages by doing nothing — AI engine drives state
+    // Occasional random disconnects
+    const reschedule = () => {
+      const delay = 25000 + Math.random() * 35000;
+      this._timer = setTimeout(() => {
+        if (Math.random() < .15) { this.disconnect(); } else { reschedule(); }
+      }, delay);
+    };
+    reschedule();
+  }
+};
+WS.connect();
+
+/* ============================================================
+   CAMERA MANAGER
+   ============================================================ */
+const Cam = {
+  video: $('webcam-video'),
+  canvas: $('detection-canvas'),
+  ctx: null,
+  stream: null,
+  raf: null,
+  fpsTimer: null,
+  fpsFrames: 0,
+  fpsLast: 0,
+  width: 0,
+  height: 0,
+
+  async init() {
+    this.ctx = this.canvas.getContext('2d');
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        video: {width:{ideal:1280},height:{ideal:720},facingMode:'user'},
+        audio: false
+      });
+      this.video.srcObject = this.stream;
+      await this.video.play();
+
+      const track = this.stream.getVideoTracks()[0];
+      const settings = track.getSettings();
+      this.width = settings.width || 1280;
+      this.height = settings.height || 720;
+
+      this.canvas.width = this.width;
+      this.canvas.height = this.height;
+
+      $('cam-placeholder').style.display = 'none';
+      $('cam-rec').style.display = 'flex';
+      $('cam-resolution').textContent = `${this.width}×${this.height}`;
+      $('cam-res').textContent = `${this.width}×${this.height}`;
+      $('cam-ai-state').textContent = 'ACTIVE';
+      $('cam-ai-state').style.color = 'var(--green)';
+      $('sys-cam').textContent = 'ACTIVE';
+      $('sys-cam').className = 'sys-value ok';
+      $('sys-ai').textContent = 'RUNNING';
+      $('sys-ai').className = 'sys-value ok';
+
+      document.getElementById('camera-panel').classList.add('active');
+      S.cameraActive = true;
+      S.aiActive = true;
+      S.sessionStart = Date.now();
+      S.sessions++;
+      S.events = 0;
+
+      // Update presence sub label
+      $('sess-status').textContent = 'ACTIVE';
+      $('sess-status').style.color = 'var(--green)';
+      $('sess-start').textContent = `Started ${fmtTimeShort(new Date())}`;
+
+      this.fpsLast = performance.now();
+      this.loop();
+    } catch(e) {
+      console.warn('Camera error:', e);
+      $('cam-placeholder-label').innerHTML = 'Camera permission denied.<br>Please allow access and refresh.';
+    }
+  },
+
+  loop() {
+    this.raf = requestAnimationFrame(() => this.loop());
+    const now = performance.now();
+    const dt = (now - this.fpsLast) / 1000;
+
+    // FPS calc (running every ~0.5s)
+    this.fpsFrames++;
+    S.totalFrames++;
+    if (dt >= 0.5) {
+      S.fps = Math.round(this.fpsFrames / dt);
+      this.fpsFrames = 0;
+      this.fpsLast = now;
+    }
+
+    // Latency simulation
+    S.latency = 18 + Math.floor(Math.random() * 12);
+
+    this.simulate(now);
+    this.draw();
+    this.updateFpsOverlay();
+  },
+
+  simulate(now) {
+    const f = S.face;
+    const t = now / 1000;
+
+    // Decide detection state
+    f.lostTimer -= 0.016;
+    if (!f.detected && f.lostTimer <= 0) {
+      f.detected = true;
+      f.lostTimer = 0;
+      f.scanPhase = 0;
+    } else if (f.detected && Math.random() < 0.0008) {
+      // Random brief loss
+      f.detected = false;
+      f.lostTimer = 1.5 + Math.random() * 3;
+    }
+
+    if (f.detected) {
+      // Gentle organic movement
+      f.vx += (Math.random() - .5) * .0008;
+      f.vy += (Math.random() - .5) * .0006;
+      f.vx *= .88;
+      f.vy *= .88;
+      f.x = clamp(f.x + f.vx, .10, .52);
+      f.y = clamp(f.y + f.vy, .05, .22);
+
+      // Scan sweep
+      f.scanPhase += .018;
+      if (f.scanPhase > 1) f.scanPhase = 0;
+      f.scanY = f.scanPhase;
+
+      // Confidence — high when detected
+      S.targetConf = 0.82 + Math.sin(t * .7) * .08 + Math.random() * .04;
+    } else {
+      S.targetConf = 0;
+      f.scanPhase = 0;
+    }
+
+    S.confidence = lerp(S.confidence, S.targetConf, .06);
+
+    // Presence state logic
+    const wasPresent = S.presence === 'PRESENT';
+    const nowPresent = f.detected && S.confidence > 0.68;
+    if (nowPresent && S.presence !== 'PRESENT') {
+      PresenceEngine.setState('PRESENT');
+      S.lastDetectTime = Date.now();
+    } else if (!nowPresent && f.lostTimer > 2.5 && S.presence === 'PRESENT') {
+      PresenceEngine.setState('AWAY');
+    } else if (!f.detected && S.presence === 'UNKNOWN' && S.cameraActive) {
+      // stay unknown initially
+    }
+
+    if (f.detected) {
+      S.lastDetectTime = Date.now();
+    }
+
+    // Confidence history
+    S.confHistory.copyWithin(0, 1);
+    S.confHistory[S.confHistory.length - 1] = S.confidence;
+
+    // AI load simulation
+    S.aiLoad = f.detected
+      ? 28 + Math.sin(t * 1.3) * 8 + Math.random() * 6
+      : 8 + Math.random() * 4;
+  },
+
+  draw() {
+    const ctx = this.ctx;
+    const W = this.canvas.width || 1280;
+    const H = this.canvas.height || 720;
+    ctx.clearRect(0, 0, W, H);
+
+    const f = S.face;
+    if (!f.detected || S.confidence < .05) return;
+
+    const alpha = clamp(S.confidence * 1.2, 0, 1);
+    const fx = f.x * W;
+    const fy = f.y * H;
+    const fw = f.w * W;
+    const fh = f.h * H;
+
+    // Outer glow rect
+    ctx.save();
+    ctx.globalAlpha = alpha * .15;
+    ctx.fillStyle = '#00d9f5';
+    this._roundRect(ctx, fx - 4, fy - 4, fw + 8, fh + 8, 6);
+    ctx.fill();
+    ctx.restore();
+
+    // Main detection box
+    ctx.save();
+    ctx.globalAlpha = alpha * .7;
+    ctx.strokeStyle = '#00d9f5';
+    ctx.lineWidth = 1.2;
+    this._roundRect(ctx, fx, fy, fw, fh, 4);
+    ctx.stroke();
+    ctx.restore();
+
+    // Corner accents
+    const cs = 14;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = '#00d9f5';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    [[fx,fy,1,1],[fx+fw,fy,-1,1],[fx,fy+fh,1,-1],[fx+fw,fy+fh,-1,-1]].forEach(([ox,oy,sx,sy]) => {
+      ctx.beginPath();
+      ctx.moveTo(ox + sx*cs, oy); ctx.lineTo(ox, oy); ctx.lineTo(ox, oy + sy*cs);
+      ctx.stroke();
+    });
+    ctx.restore();
+
+    // Face scan sweep
+    if (f.scanPhase > 0) {
+      const sy = fy + f.scanY * fh;
+      const grad = ctx.createLinearGradient(fx, sy, fx + fw, sy);
+      grad.addColorStop(0, 'transparent');
+      grad.addColorStop(.4, `rgba(0,217,245,${alpha*.5})`);
+      grad.addColorStop(.6, `rgba(0,217,245,${alpha*.8})`);
+      grad.addColorStop(1, 'transparent');
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = grad;
+      ctx.fillRect(fx, sy - 1, fw, 2);
+      ctx.restore();
+    }
+
+    // Landmark dots
+    const landmarks = [
+      [.3, .38], [.7, .38],           // eyes
+      [.5, .56],                        // nose
+      [.38, .74], [.62, .74],          // mouth corners
+    ];
+    ctx.save();
+    ctx.globalAlpha = alpha * .7;
+    ctx.fillStyle = '#00d9f5';
+    landmarks.forEach(([rx, ry]) => {
+      ctx.beginPath();
+      ctx.arc(fx + rx * fw, fy + ry * fh, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    // Connecting lines (subtle)
+    ctx.globalAlpha = alpha * .2;
+    ctx.strokeStyle = '#00d9f5';
+    ctx.lineWidth = .8;
+    const lx = landmarks.map(([rx,ry]) => [fx+rx*fw, fy+ry*fh]);
+    const pairs = [[0,1],[0,2],[1,2],[2,3],[2,4],[3,4]];
+    pairs.forEach(([a,b]) => {
+      ctx.beginPath(); ctx.moveTo(lx[a][0],lx[a][1]); ctx.lineTo(lx[b][0],lx[b][1]); ctx.stroke();
+    });
+    ctx.restore();
+
+    // Confidence label
+    const conf = Math.round(S.confidence * 100);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = 'bold 11px IBM Plex Mono, monospace';
+    ctx.fillStyle = '#00d9f5';
+    ctx.fillText(`${conf}% MATCH`, fx, fy - 10);
+    ctx.font = '9px IBM Plex Mono, monospace';
+    ctx.globalAlpha = alpha * .6;
+    ctx.fillStyle = '#00d9f5';
+    ctx.fillText('AUTHORIZED USER', fx, fy + fh + 14);
+    ctx.restore();
+  },
+
+  _roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+    ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r);
+    ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h);
+    ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r);
+    ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.closePath();
+  },
+
+  updateFpsOverlay() {
+    $('cam-fps-overlay').textContent = `${S.fps} fps  ·  ${S.latency}ms`;
+    $('cam-id-overlay').textContent = S.face.detected ? 'ID CONFIRMED' : '';
+  }
+};
+
+$('cam-start-btn').addEventListener('click', () => Cam.init());
+
+/* ============================================================
+   PRESENCE ENGINE
+   ============================================================ */
+const PresenceEngine = {
+  lastState: null,
+  eventBuffer: [],
+  eventTimer: null,
+
+  setState(newState) {
+    if (newState === S.presence) return;
+    const prev = S.presence;
+    S.presence = newState;
+
+    // Update orb
+    const orb = $('presence-orb');
+    const label = $('presence-state');
+    const ring = $('orb-ring');
+    const dot = $('pres-dot');
+    const sub = $('presence-sub');
+
+    orb.className = 'presence-orb ' + newState.toLowerCase();
+    label.className = 'presence-state ' + newState.toLowerCase();
+    label.textContent = newState;
+
+    if (newState === 'PRESENT') {
+      dot.style.background = 'var(--green)';
+      ring.style.borderColor = 'rgba(0,200,122,.2)';
+      ring.style.animation = 'ring-breathe 2.5s ease-in-out infinite';
+      sub.textContent = 'Authorized user detected';
+      $('pres-updated').textContent = `at ${fmtTimeShort(new Date())}`;
+      if (prev !== 'PRESENT') {
+        S.sessions++;
+        this.logEvent('User presence confirmed', newState, S.confidence);
+      }
+    } else if (newState === 'AWAY') {
+      dot.style.background = 'var(--red)';
+      ring.style.borderColor = 'transparent';
+      ring.style.animation = 'none';
+      sub.textContent = 'No subject in frame';
+      $('pres-updated').textContent = `at ${fmtTimeShort(new Date())}`;
+      this.logEvent('Presence lost — user away', newState, 0);
+    } else {
+      dot.style.background = 'var(--txt-3)';
+      ring.style.borderColor = 'transparent';
+      ring.style.animation = 'none';
+      sub.textContent = 'Analyzing feed…';
+    }
+
+    // Update KPIs
+    $('kpi-sessions').textContent = S.sessions;
+    $('kpi-events').textContent = ++S.events;
+    Timeline.updateCurrent(newState);
+  },
+
+  logEvent(msg, state, conf) {
+    const ts = new Date();
+    const confPct = Math.round(conf * 100);
+    const confClass = confPct > 80 ? 'hi' : confPct > 60 ? 'mid' : 'lo';
+    const dotClass = state === 'PRESENT' ? 'present' : state === 'AWAY' ? 'away' : 'unknown';
+
+    const item = document.createElement('div');
+    item.className = 'det-item';
+    item.innerHTML = `
+      <div class="det-dot ${dotClass}"></div>
+      <div class="det-info">
+        <div class="det-event">${msg}</div>
+        <div class="det-time">${fmtTimeShort(ts)}</div>
+      </div>
+      ${confPct > 0 ? `<div class="det-conf ${confClass}">${confPct}%</div>` : ''}
+    `;
+
+    const list = $('det-list');
+    // Remove placeholder
+    if (list.children.length === 1 && list.children[0].tagName !== 'DIV'.toUpperCase()) {
+      // keep
+    }
+    const ph = list.querySelector('[style*="Awaiting"]');
+    if (ph) ph.remove();
+
+    list.insertBefore(item, list.firstChild);
+
+    // Cap at 12
+    while (list.children.length > 12) list.removeChild(list.lastChild);
+
+    // Update event count label
+    $('det-count-lbl').textContent = `${$('det-list').children.length} events`;
+  }
+};
+
+/* ============================================================
+   SESSION STATS UPDATE
+   ============================================================ */
+function updateSessionStats() {
+  if (S.cameraActive) {
+    const uptime = Date.now() - S.monitorStart;
+    $('sess-uptime').textContent = fmtDuration(uptime);
+  }
+  if (S.sessionStart) {
+    const dur = Date.now() - S.sessionStart;
+    $('sess-time').textContent = fmtDuration(dur);
+  }
+
+  if (S.lastDetectTime) {
+    $('sess-last').textContent = fmtTimeShort(new Date(S.lastDetectTime));
+    $('sess-last-ago').textContent = timeAgo(S.lastDetectTime);
+  }
+
+  $('sess-frames').textContent = S.totalFrames.toLocaleString();
+  $('sess-fps-avg').textContent = `${S.fps} fps current`;
+
+  // Today minutes (rough estimate based on sessions)
+  if (S.sessionStart && S.presence === 'PRESENT') {
+    S.todayMinutes = Math.floor((Date.now() - S.sessionStart) / 60000) + 127; // + simulated history
+  }
+  const h = Math.floor(S.todayMinutes / 60);
+  const m = S.todayMinutes % 60;
+  $('kpi-today').textContent = `${h}h ${m}m`;
+
+  if (S.confidence > 0) {
+    $('kpi-accuracy').textContent = `${Math.round(clamp(S.confidence * 100, 0, 100))}%`;
+  }
+}
+
+/* ============================================================
+   CONFIDENCE UI UPDATE
+   ============================================================ */
+let _lastConfRender = 0;
+function updateConfUI() {
+  const now = performance.now();
+  if (now - _lastConfRender < 80) return;
+  _lastConfRender = now;
+
+  const pct = Math.round(S.confidence * 100);
+  $('conf-num').textContent = pct;
+  $('conf-fill').style.width = `${pct}%`;
+
+  const fill = $('conf-fill');
+  if (pct > 80) {
+    fill.style.background = 'var(--green)';
+    $('conf-num').style.color = 'var(--green)';
+    $('conf-status-lbl').textContent = 'HIGH';
+    $('conf-status-lbl').style.color = 'var(--green)';
+  } else if (pct > 60) {
+    fill.style.background = 'var(--amber)';
+    $('conf-num').style.color = 'var(--amber)';
+    $('conf-status-lbl').textContent = 'MEDIUM';
+    $('conf-status-lbl').style.color = 'var(--amber)';
+  } else if (pct > 0) {
+    fill.style.background = 'var(--red)';
+    $('conf-num').style.color = 'var(--red)';
+    $('conf-status-lbl').textContent = 'LOW';
+    $('conf-status-lbl').style.color = 'var(--red)';
+  } else {
+    fill.style.background = 'var(--surf-4)';
+    $('conf-num').style.color = 'var(--txt-3)';
+    $('conf-status-lbl').textContent = 'INACTIVE';
+    $('conf-status-lbl').style.color = 'var(--txt-3)';
+  }
+
+  drawSparkline();
+}
+
+/* ============================================================
+   SPARKLINE CHART
+   ============================================================ */
+function drawSparkline() {
+  const canvas = $('conf-canvas');
+  const parent = canvas.parentElement;
+  const W = parent.offsetWidth;
+  const H = 42;
+  if (canvas.width !== W) { canvas.width = W; canvas.height = H; }
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const data = S.confHistory;
+  const len = data.length;
+  if (len < 2) return;
+
+  const stepX = W / (len - 1);
+
+  // Fill gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(232,160,0,0.25)');
+  grad.addColorStop(1, 'rgba(232,160,0,0)');
+
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  for (let i = 0; i < len; i++) {
+    const x = i * stepX;
+    const y = H - data[i] * (H - 4) - 2;
+    if (i === 0) ctx.lineTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.lineTo((len-1)*stepX, H);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  for (let i = 0; i < len; i++) {
+    const x = i * stepX;
+    const y = H - data[i] * (H - 4) - 2;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = 'rgba(232,160,0,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Threshold line at 70%
+  const ty = H - .70 * (H - 4) - 2;
+  ctx.beginPath();
+  ctx.moveTo(0, ty); ctx.lineTo(W, ty);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/* ============================================================
+   SYSTEM PANEL UPDATE
+   ============================================================ */
+function updateSystemPanel() {
+  $('cam-fps').textContent = S.fps;
+  $('cam-latency').textContent = `${S.latency}ms`;
+  $('sys-fps').textContent = `${S.fps} fps`;
+  $('sys-fps').className = S.fps > 20 ? 'sys-value ok' : S.fps > 10 ? 'sys-value warn' : 'sys-value err';
+  $('sys-latency').textContent = `${S.latency}ms`;
+  $('sys-latency').className = S.latency < 30 ? 'sys-value ok' : S.latency < 60 ? 'sys-value warn' : 'sys-value err';
+
+  const aiPct = Math.round(S.aiLoad);
+  $('sys-ai-bar').style.width = `${aiPct}%`;
+  $('sys-ai-bar-lbl').textContent = `${aiPct}%`;
+  $('sys-ai-bar').style.background = aiPct > 60 ? 'var(--amber)' : 'var(--cyan)';
+}
+
+/* ============================================================
+   TIMELINE
+   ============================================================ */
+const Timeline = {
+  // 24 hourly blocks, pre-seeded with historical data
+  blocks: [],
+  currentHour: 0,
+
+  init() {
+    const now = new Date();
+    this.currentHour = now.getHours();
+    const date = now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    $('tl-date').textContent = date;
+
+    // Generate plausible historical presence data
+    const workStart = 8, workEnd = 17;
+    this.blocks = Array.from({length:24}, (_,h) => {
+      if (h > this.currentHour) return 'future';
+      if (h === this.currentHour) return 'current';
+      if (h < workStart || h >= workEnd) return 'absent';
+      if (h === 12 || h === 13) return Math.random() < .4 ? 'absent' : 'partial'; // lunch
+      return Math.random() < .85 ? 'present' : 'partial';
+    });
+
+    this.render();
+  },
+
+  render() {
+    const row = $('tl-row');
+    const labels = $('tl-labels');
+    row.innerHTML = '';
+    labels.innerHTML = '';
+
+    this.blocks.forEach((state, h) => {
+      const block = document.createElement('div');
+      block.className = 'tl-block';
+      if (state === 'future') {
+        block.classList.add('absent');
+        block.style.opacity = '.25';
+      } else if (state === 'current') {
+        block.classList.add('current');
+      } else if (state === 'present') {
+        block.classList.add('present');
+      } else if (state === 'partial') {
+        block.classList.add('partial');
+      } else {
+        block.classList.add('absent');
+      }
+
+      const tip = document.createElement('div');
+      tip.className = 'tl-tip';
+      const stateLabel = state === 'present' ? 'Present' : state === 'partial' ? 'Partial' : state === 'current' ? 'Now' : 'Away';
+      tip.textContent = `${String(h).padStart(2,'0')}:00 — ${stateLabel}`;
+      block.appendChild(tip);
+      row.appendChild(block);
+    });
+
+    // Labels every 4 hours
+    [0,4,8,12,16,20,23].forEach(h => {
+      const lbl = document.createElement('span');
+      lbl.textContent = `${String(h).padStart(2,'0')}:00`;
+      labels.appendChild(lbl);
+    });
+  },
+
+  updateCurrent(presenceState) {
+    const idx = this.currentHour;
+    if (idx < 0 || idx >= 24) return;
+    const s = presenceState === 'PRESENT' ? 'current' : this.blocks[idx];
+    // keep current block as 'current' always
+    this.render();
+  }
+};
+
+Timeline.init();
+
+/* ============================================================
+   MAIN RENDER LOOP (UI updates)
+   ============================================================ */
+let _lastUIUpdate = 0;
+function uiLoop(ts) {
+  requestAnimationFrame(uiLoop);
+  if (ts - _lastUIUpdate < 100) return; // ~10fps for UI
+  _lastUIUpdate = ts;
+
+  if (S.cameraActive) {
+    updateConfUI();
+  }
+}
+requestAnimationFrame(uiLoop);
+
+/* ============================================================
+   PERIODIC DETECTION LOGGING (when camera active)
+   ============================================================ */
+setInterval(() => {
+  if (!S.cameraActive || !S.face.detected) return;
+  if (Math.random() < 0.15) {
+    const conf = S.confidence;
+    PresenceEngine.logEvent('Face re-confirmed in frame', S.presence, conf);
+    $('det-count-lbl').textContent = `${$('det-list').children.length} events`;
+  }
+}, 8000);
+
+/* ============================================================
+   INITIAL SIMULATED DATA (pre-populate detections)
+   ============================================================ */
+(function seedDetections() {
+  const events = [
+    ['System initialized', 'UNKNOWN', 0],
+    ['Webcam standby mode', 'UNKNOWN', 0],
+  ];
+  events.forEach(([msg, state, conf]) => {
+    const item = document.createElement('div');
+    item.className = 'det-item';
+    item.style.opacity = '.5';
+    item.innerHTML = `
+      <div class="det-dot unknown"></div>
+      <div class="det-info">
+        <div class="det-event">${msg}</div>
+        <div class="det-time">—</div>
+      </div>
+    `;
+    const list = $('det-list');
+    const ph = list.querySelector('[style*="Awaiting"]');
+    if (ph) ph.remove();
+    list.appendChild(item);
+  });
+})();
+
+</script>
+</body>
+</html>
